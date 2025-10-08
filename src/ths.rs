@@ -155,13 +155,10 @@ impl THS {
             ops.username  = account.0;
             ops.password = account.1;
         }
-
-        // let lib = Self::load_library()?;
-        // let default_ver = String::new();
-        let lib_ver = ops.lib_ver.clone();
-        let lib_path = Self::get_lib_path(&*lib_ver)?;
+        // 版本参数
+        let lib_ver = ops.lib_ver;
+        let lib_path = Self::get_lib_path(&lib_ver)?;
         let lib: &Library  = LIBRARY.get_or_init(|| unsafe {Library::new(lib_path).unwrap()});
-
         
         Ok(Self {
             ops,
@@ -296,7 +293,7 @@ impl THS {
         }
     }
 
-    fn cmd_query_data(&mut self, req: String, service_key: &str, buffer_size: usize, max_attempts: usize) -> Result<Response, THSError> {
+    pub fn cmd_query_data(&mut self, req: String, service_key: &str, buffer_size: usize, max_attempts: usize) -> Result<Response, THSError> {
         if !self.login {
             return Err(THSError::ApiError("未登录".into()));
         }
@@ -729,35 +726,7 @@ impl THS {
         self.cmd_query_data(req, "zhu", 1024 * 1024 * 2, 5)
     }
 
-    pub fn get_l2_transaction_data(&mut self, ths_code: &str, start: i64, end: i64) -> Result<Response, THSError> {
-        let ths_code = ths_code.to_uppercase();
-        if ths_code.len() != 10 || !MARKETS.iter().any(|&m| ths_code.starts_with(m)) {
-            return Err(THSError::InvalidCode(
-                "证券代码必须为10个字符，且以 'USHA' 或 'USZA' 开头".into(),
-            ));
-        }
-        if start >= end {
-            return Err(THSError::ApiError("开始时间戳必须小于结束时间戳".into()));
-        }
-
-        let data_type = "5,10,12,13";
-        let market = &ths_code[..4];
-        let short_code = &ths_code[4..];
-
-        let req = format!(
-            "\"id=220&instance={}&zipversion={}&code={}&market={}&start={}&end={}&datatype={}\"",
-            self.next_share_instance_id(),
-            self.zip_version(),
-            short_code,
-            market,
-            start,
-            end,
-            data_type
-        );
-
-        self.cmd_query_data(req, "zhu", 1024 * 1024 * 2, 5)
-    }
-
+    /// 老版本接口
     pub fn history_minute_time_data(&mut self, ths_code: &str, date: &str, fields: Option<Vec<&str>>) -> Result<Response, THSError> {
         let ths_code = ths_code.to_uppercase();
         if ths_code.len() != 10 || !MARKETS.iter().any(|&m| ths_code.starts_with(m)) {
@@ -802,6 +771,36 @@ impl THS {
     }
 
     
+    /// 接口无法使用
+    fn get_l2_transaction_data(&mut self, ths_code: &str, start: i64, end: i64) -> Result<Response, THSError> {
+        let ths_code = ths_code.to_uppercase();
+        if ths_code.len() != 10 || !MARKETS.iter().any(|&m| ths_code.starts_with(m)) {
+            return Err(THSError::InvalidCode(
+                "证券代码必须为10个字符，且以 'USHA' 或 'USZA' 开头".into(),
+            ));
+        }
+        if start >= end {
+            return Err(THSError::ApiError("开始时间戳必须小于结束时间戳".into()));
+        }
+
+        let data_type = "5,10,12,13";
+        let market = &ths_code[..4];
+        let short_code = &ths_code[4..];
+
+        let req = format!(
+            "\"id=220&instance={}&zipversion={}&code={}&market={}&start={}&end={}&datatype={}\"",
+            self.next_share_instance_id(),
+            self.zip_version(),
+            short_code,
+            market,
+            start,
+            end,
+            data_type
+        );
+
+        self.cmd_query_data(req, "zhu", 1024 * 1024 * 2, 5)
+    }
+
     fn get_lib_path(version:&str) -> Result<PathBuf, THSError> {
         if std::env::consts::ARCH == "aarch64" {
             return Err(THSError::UnsupportedPlatform("Apple M系列芯片暂不支持".into()));
