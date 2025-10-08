@@ -171,34 +171,10 @@ impl THS {
         })
     }
 
-
-    fn get_lib_path(version:&str) -> Result<PathBuf, THSError> {
-        if std::env::consts::ARCH == "aarch64" {
-            return Err(THSError::UnsupportedPlatform("Apple M系列芯片暂不支持".into()));
-        }
-
-        let base_dir = std::env::current_dir()?;
-        
-        #[cfg(target_os = "linux")]
-        let lib_name = format!("hq{}.so", version);
-        #[cfg(target_os = "macos")]
-        let lib_name = format!("hq{}.dylib", version);
-        #[cfg(target_os = "windows")]
-        let lib_name = format!("hq{}.dll", version);
-
-        let lib_path = base_dir.join("lib").join(lib_name);
-        Ok(lib_path)
+    pub fn is_connected(&self) -> bool {
+        self.login
     }
 
-    pub fn zip_version(&self) -> i32 {
-        2
-    }
-
-    pub fn next_share_instance_id(&mut self) -> i32 {
-        let id = self.share_instance_id;
-        self.share_instance_id += 1;
-        id
-    }
 
     /// 这里的 params参数 python 可以支持多类型 数据，但是 rust只能是 String 类型的，所以，如果传入的参数在python中是对象，那么前后就不用加 ""
     /// 如下
@@ -823,6 +799,35 @@ impl THS {
         }
 
         Ok(response)
+    }
+
+    
+    fn get_lib_path(version:&str) -> Result<PathBuf, THSError> {
+        if std::env::consts::ARCH == "aarch64" {
+            return Err(THSError::UnsupportedPlatform("Apple M系列芯片暂不支持".into()));
+        }
+
+        let base_dir = std::env::current_dir()?;
+        
+        #[cfg(target_os = "linux")]
+        let lib_name = format!("hq{}.so", version);
+        #[cfg(target_os = "macos")]
+        let lib_name = format!("hq{}.dylib", version);
+        #[cfg(target_os = "windows")]
+        let lib_name = format!("hq{}.dll", version);
+
+        let lib_path = base_dir.join("lib").join(lib_name);
+        Ok(lib_path)
+    }
+
+    fn zip_version(&self) -> i32 {
+        2
+    }
+
+    fn next_share_instance_id(&mut self) -> i32 {
+        let id = self.share_instance_id;
+        self.share_instance_id += 1;
+        id
     }
 }
 

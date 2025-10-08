@@ -151,18 +151,24 @@ pub struct KLine {
     pub time: i64,
     #[serde(rename(deserialize = "1"),skip_serializing)]
     pub time_int: i32,
+    /// 开盘价
     #[serde(rename(deserialize = "7"))]
     pub open: f64,
+    /// 最高价
     #[serde(rename(deserialize = "8"))]
     pub high: f64,
+    /// 最低价
     #[serde(rename(deserialize = "9"))]
     pub low: f64,
+    /// 收盘价
     #[serde(rename(deserialize = "11"))]
     pub close: f64,
+    /// 成交量
     #[serde(rename(deserialize = "13"))]
-    pub volume: i64, // 成交量
+    pub volume: i64, 
+    /// 成交额
     #[serde(rename(deserialize = "19"))]
-    pub amount: f64, // 成交额
+    pub amount: f64, 
 }
 
 /// 订单簿
