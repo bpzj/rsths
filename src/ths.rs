@@ -279,7 +279,8 @@ impl THS {
     }
 
     pub fn help(&mut self, req: &str) -> Result<String, THSError> {
-        let response = self.call::<Response>("help", Some(req.to_string()), 1024)?;
+        let param = format!("\"{}\"", req);
+        let response = self.call::<Response>("help", Some(param), 1024*4)?;
         
         match response.payload.result {
             Some(serde_json::Value::String(s)) => Ok(s),
