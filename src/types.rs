@@ -191,11 +191,10 @@ pub struct MarketData {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockData {
+    #[serde(rename(deserialize = "5"))]
     pub symbol: String,
+    #[serde(rename(deserialize = "55"))]
     pub name: String,
-    pub change: f64,
-    pub volume: i64,
-    pub amount: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

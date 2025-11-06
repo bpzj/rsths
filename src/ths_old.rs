@@ -11,113 +11,13 @@ use std::path::PathBuf;
 use crate::constants::{BLOCK_MARKETS, MARKETS};
 use crate::error::THSError;
 use crate::guest;
-use crate::types::{BlockData, KLine, ThsOrderBook, Tick, TickAll};
+use crate::types::{KLine, ThsOrderBook, Tick, TickAll};
 
 /// 静态变量，用于缓存库和函数指针
 static LIBRARY: OnceCell<Library> = OnceCell::new();
 static CALL_FN: OnceCell<unsafe extern "C" fn(*const c_char, *mut c_char, c_int, *const c_void) -> c_int> = OnceCell::new();
 
-#[derive(Debug, Clone)]
-pub struct THS {
-    ops: ThsOption,
-    lib: &'static Library,
-    login: bool,
-    share_instance_id: i32,
-}
 
-/// 初始化参数
-#[derive(Debug, Clone, Serialize, Deserialize,Default)]
-pub struct ThsOption{
-    pub username: &'static str,
-    pub password: &'static str,
-    #[serde(skip_serializing)]
-    pub lib_ver: &'static str,
-}
-
-/// 订单簿
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OrderBookResponse {
-    pub err_info: String,
-    pub payload: OrderBookPayload,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OrderBookPayload {
-    pub result: Vec<ThsOrderBook>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct KLineResponse {
-    pub err_info: String,
-    pub payload: KlinePayload,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct KlinePayload {
-    pub result: Vec<KLine>,
-}
-
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TickResponse {
-    pub err_info: String,
-    pub payload: TickPayload,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TickPayload {
-    pub result: Vec<Tick>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TickAllResponse {
-    pub err_info: String,
-    pub payload: TickAllPayload,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TickAllPayload {
-    pub result: Vec<TickAll>,
-    pub dict_extra: Option<HashMap<String, Value>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BlockDataResponse {
-    pub err_info: String,
-    pub payload: BlockDataPayload,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BlockDataPayload {
-    pub result: Vec<BlockData>,
-    pub dict_extra: Option<HashMap<String, Value>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Response {
-    pub err_info: String,
-    pub payload: Payload,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Payload {
-    pub result: Option<Value>,
-    pub dict_extra: Option<HashMap<String, Value>>,
-}
-
-pub struct Adjust;
-impl Adjust {
-    pub const FORWARD: &'static str = "forward";
-    pub const BACKWARD: &'static str = "backward";
-    pub const NONE: &'static str = "";
-
-    pub fn all_types() -> Vec<&'static str> {
-        vec![Self::FORWARD, Self::BACKWARD, Self::NONE]
-    }
-}
-
-pub struct Interval;
-impl Interval {
     pub const MIN_1: &'static str = "1m";
     pub const MIN_5: &'static str = "5m";
     pub const MIN_15: &'static str = "15m";
@@ -305,7 +205,19 @@ impl THS {
         }
     }
 
-    pub fn cmd_query_data(&mut self, req: String, service_key: &str, buffer_size: usize, max_attempts: usize) -> Result<Response, THSError> {
+    /// 查询行情数据指令
+    ///        Args:
+    ///            params (dict): 查询请求参数。(必须按照顺序输入参数包含字段: id,codelist,market,datatype,service)
+    ///            buffer_size (int, optional): 输出缓冲区大小（字节），默认为 2MB。
+    ///            max_attempts (int, optional): 最大尝试次数，默认为 5。
+    ///
+    ///        Returns:
+    ///            Response: 包含查询结果的响应对象。
+    ///
+    ///        Notes:
+    ///            如果未登录，返回未授权响应。
+    ///            如果缓冲区不足，会自动扩大缓冲区并重试。
+    pub fn query_data(&mut self, req: String, service_key: &str, buffer_size: usize, max_attempts: usize) -> Result<Response, THSError> {
         if !self.login {
             return Err(THSError::ApiError("未登录".into()));
         }
@@ -434,6 +346,8 @@ impl THS {
         Ok(response)
     }
 
+
+
     pub fn tick_super_level1(
         &mut self,
         ths_code: &str,
@@ -495,6 +409,8 @@ impl THS {
     }
 
 
+    /// 以下接口为旧版本接口 
+    /// 查询市场数据 
     pub fn stock_market_data(&mut self, ths_code: &str) -> Result<Response, THSError> {
         let codes = if ths_code.contains(',') {
             ths_code.split(',').collect::<Vec<_>>()
@@ -530,34 +446,10 @@ impl THS {
             data_type
         );
 
-        self.cmd_query_data(req, "fu", 1024 * 1024 * 2, 5)
+        self.query_data(req, "fu", 1024 * 1024 * 2, 5)
     }
 
-    /// 获取板块数据
-    /// block_id (int): 板块 ID
-    /// 0xE 表示沪深A股，0x4 沪封闭式基金，0x5 深封闭式基金，0x6 沪深封闭式基金
-    /// 0xE 沪深A股， 0x15 沪市A股， 0x1B 深市A股，0xD2 全部指数
-    /// 0xCA8B 北京A股 北交所， 0xCFE4 创业板， 0xCBE5 科创板
-    ///  0xDBC6 风险警示，0xDBC7 退市整理，0xF026 行业和概念
-    ///  0xCE5E 概念，0xCE5F 行业，0xdffb 地域
-    ///  0xD385 国内外重要指数， 0xDB5E 股指期货
-    ///  0xCE3F 上证系列指数，0xCE3E 深证系列指数，0xCE3D 中证系列指数，0xC2B0 北证系列指数
-    ///  0xCFF3 ETF基金，0xEF8C LOF基金
-    ///  0xC6A6 全部A股，0xD811 分级基金，0xD90C T+0基金
-    ///  0xC7B1 沪REITs，0xC7A0 深REITs，0xC89C 沪深REITs
-    ///  0xCE14 可转债，0xCE17 国债，0xCE0B 上证债券，0xCE0A 深证债券
-    ///  0xCE12 回购，0xCE11 贴债，0xCE16 地方债，0xCE15 企业债，0xD8D4 小公募
-    pub fn block_data(&mut self, block_id: i32) -> Result<BlockDataResponse, THSError> {
-        let params = format!(
-            "{{\"block_id\":{}}}",
-            block_id
-        );
-        self.call::<BlockDataResponse>(
-            "block_data",
-            Some(params.to_string()),
-            1024 * 256,
-        )
-    }
+    
 
     pub fn get_block_components(&mut self, link_code: &str) -> Result<Response, THSError> {
         if link_code.is_empty() {
@@ -570,7 +462,7 @@ impl THS {
             self.zip_version(),
             link_code
         );
-        self.cmd_query_data(req, "bk", 1024 * 1024 * 2, 5)
+        self.query_data(req, "bk", 1024 * 1024 * 2, 5)
     }
 
     pub fn block_market_data(&mut self, block_code: &str) -> Result<Response, THSError> {
@@ -606,47 +498,47 @@ impl THS {
             data_type
         );
 
-        self.cmd_query_data(req, "fu", 1024 * 1024 * 2, 5)
+        self.query_data(req, "fu", 1024 * 1024 * 2, 5)
     }
 
-    pub fn query_ths_industry(&mut self) -> Result<BlockDataResponse, THSError> {
-        self.block_data(0xCE5F)
+    pub fn query_ths_industry(&mut self) -> Result<Response, THSError> {
+        self.get_block_data(0xCE5F)
     }
 
-    pub fn query_ths_concept(&mut self) -> Result<BlockDataResponse, THSError> {
-        self.block_data(0xCE5E)
+    pub fn query_ths_concept(&mut self) -> Result<Response, THSError> {
+        self.get_block_data(0xCE5E)
     }
 
-    pub fn query_ths_index(&mut self) -> Result<BlockDataResponse, THSError> {
-        self.block_data(0xD2)
+    pub fn query_ths_index(&mut self) -> Result<Response, THSError> {
+        self.get_block_data(0xD2)
     }
 
-    pub fn stock_zh_lists(&mut self) -> Result<BlockDataResponse, THSError> {
-        self.block_data(0xE)
+    pub fn stock_zh_lists(&mut self) -> Result<Response, THSError> {
+        self.get_block_data(0xE)
     }
 
-    pub fn stock_us_lists(&mut self) -> Result<BlockDataResponse, THSError> {
-        self.block_data(0xDC47)
+    pub fn stock_us_lists(&mut self) -> Result<Response, THSError> {
+        self.get_block_data(0xDC47)
     }
 
-    pub fn stock_hk_lists(&mut self) -> Result<BlockDataResponse, THSError> {
-        self.block_data(0xB)
+    pub fn stock_hk_lists(&mut self) -> Result<Response, THSError> {
+        self.get_block_data(0xB)
     }
 
-    pub fn stock_zh_b_lists(&mut self) -> Result<BlockDataResponse, THSError> {
-        self.block_data(0xF)
+    pub fn stock_zh_b_lists(&mut self) -> Result<Response, THSError> {
+        self.get_block_data(0xF)
     }
 
-    pub fn cbond_lists(&mut self) -> Result<BlockDataResponse, THSError> {
-        self.block_data(0xCE14)
+    pub fn cbond_lists(&mut self) -> Result<Response, THSError> {
+        self.get_block_data(0xCE14)
     }
 
-    pub fn fund_etf_lists(&mut self) -> Result<BlockDataResponse, THSError> {
-        self.block_data(0xCFF3)
+    pub fn fund_etf_lists(&mut self) -> Result<Response, THSError> {
+        self.get_block_data(0xCFF3)
     }
 
-    pub fn fund_etf_t0_lists(&mut self) -> Result<BlockDataResponse, THSError> {
-        self.block_data(0xD90C)
+    pub fn fund_etf_t0_lists(&mut self) -> Result<Response, THSError> {
+        self.get_block_data(0xD90C)
     }
 
     pub fn wencai_base(&mut self, condition: &str) -> Result<Response, THSError> {
@@ -689,6 +581,18 @@ impl THS {
         self.call::<Response>("ipo_wait", None, 1024)
     }
 
+    ///
+    /// 老版本的接口
+    pub fn block_data_old(&mut self, block_id: i32) -> Result<Response, THSError> {
+        let req = format!(
+            "\"id=7&instance={}&zipversion={}&sortbegin=0&sortcount=0&sortorder=D&sortid=55\
+            &blockid={:x}&reqflag=blockserve\"",
+            self.next_share_instance_id(),
+            self.zip_version(),
+            block_id
+        );
+        self.cmd_query_data(req, "bk", 1024 * 1024 * 2, 5)
+    }
     /// 老版本的 api
     pub fn get_transaction_data(&mut self, ths_code: &str, start: i64, end: i64) -> Result<Response, THSError> {
         let ths_code = ths_code.to_uppercase();

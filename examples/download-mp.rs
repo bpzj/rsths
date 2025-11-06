@@ -1,4 +1,4 @@
-use rusths::ths::{THS};
+use rsths::ths::{THS};
 use std::process::Command;
 use std::env;
 

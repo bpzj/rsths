@@ -1,5 +1,5 @@
 
-use rusths::ths::{THS, Adjust, Interval};
+use rsths::ths::{THS};
 use chrono::{Local};
 
 fn main() {
@@ -8,7 +8,7 @@ fn main() {
     let mut ths = THS::new(None).expect("Failed to create THS instance");
 
     // 连接到服务器
-    // ths.connect().expect("Failed to connect to server");
+    ths.connect().expect("Failed to connect to server");
 
     let start_time = Local::now().timestamp_millis();
     let help = ths.help("doc").expect("Failed to get stock list");

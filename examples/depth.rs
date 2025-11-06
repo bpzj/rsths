@@ -1,6 +1,6 @@
 use std::thread::sleep;
 use std::time;
-use rusths::ths::{THS, Adjust, Interval};
+use rsths::ths::{THS, Adjust, Interval};
 use chrono::{Local, Timelike};
 
 fn main() {

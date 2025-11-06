@@ -1,4 +1,4 @@
-use rusths::ths::{THS, Adjust, Interval, ThsOption};
+use rsths::ths::{THS, Adjust, Interval, ThsOption};
 use std::env;
 
 fn main() {

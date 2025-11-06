@@ -1,5 +1,5 @@
 
-use rusths::ths::{THS, Adjust, Interval, ThsOption};
+use rsths::ths::{THS, Adjust, Interval, ThsOption};
 
 fn main() {
 

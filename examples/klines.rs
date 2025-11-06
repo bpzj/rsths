@@ -1,5 +1,5 @@
 
-use rusths::ths::{THS, Adjust, Interval};
+use rsths::ths::{THS, Adjust, Interval};
 use chrono::{Local};
 use csv;
 

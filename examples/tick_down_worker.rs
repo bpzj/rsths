@@ -1,5 +1,5 @@
 
-use rusths::ths::{THS};
+use rsths::ths::{THS};
 
 /// 单个下载进程，
 fn main() {
